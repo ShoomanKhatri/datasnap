@@ -5,6 +5,8 @@ const morgan = require('morgan');
 const dotenv = require('dotenv');
 const path = require('path');
 const UserData = require('./models/userData'); // Correct model import
+const axios = require('axios');
+const useragent = require('useragent'); // To parse the User-Agent string
 
 dotenv.config();
 
@@ -36,12 +38,35 @@ app.post('/track', async (req, res) => {
         const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
         const userAgent = req.get('User-Agent');
 
-        const newUserData = new UserData({ ip: userIp, userAgent });
+        // Parse user-agent to get browser and device info
+        const agent = useragent.parse(userAgent);
+        const browserName = agent.toAgent(); // Browser name
+
+        // Get Geolocation of the IP
+        const ip = userIp.split(',')[0]; // If there are multiple IPs, use the first one
+        const geoResponse = await axios.get(`http://ip-api.com/json/${ip}`);
+        const location = geoResponse.data;
+
+        // Create a new user data entry
+        const newUserData = new UserData({
+            ip: userIp,
+            userAgent: userAgent,
+            browser: browserName,
+            location: location,
+            timestamp: new Date()
+        });
+
         await newUserData.save();
 
-        console.log(`🔹 Tracked Click - IP: ${userIp}, User-Agent: ${userAgent}`);
-        
-        res.json({ status: "success", message: "User tracked successfully" });
+        console.log(`🔹 Tracked Click - IP: ${userIp}, Browser: ${browserName}, Location: ${location.city}, ${location.country}`);
+
+        // Respond with success
+        res.json({
+            status: 'success',
+            message: 'User tracked successfully',
+            location: location,
+            browser: browserName
+        });
     } catch (error) {
         console.error('❌ Error tracking user data:', error);
         res.status(500).json({ status: 'error', message: 'Failed to track the request.' });
