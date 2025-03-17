@@ -1,10 +1,12 @@
 const mongoose = require('mongoose');
 
 const userDataSchema = new mongoose.Schema({
-    ip: { type: String, required: true },
-    userAgent: { type: String, required: true },
-    browser: { type: String, required: true },
-    location: { type: Object, required: true }, // Saves all location data
+    ip: String,
+    userAgent: String,
+    browser: String,
+    os: String,
+    location: Object, // IP-based location
+    clientLocation: Object, // GPS-based location from frontend
     timestamp: { type: Date, default: Date.now }
 });
 

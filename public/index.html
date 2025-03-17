@@ -33,19 +33,46 @@
 
     <script>
         document.getElementById("trackButton").addEventListener("click", async () => {
-            try {
-                const response = await fetch("/track", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                });
+            const statusMessage = document.getElementById("statusMessage");
+            statusMessage.innerText = "🔄 Tracking in progress...";
 
-                if (response.ok) {
-                    document.getElementById("statusMessage").innerText = "✅ Data tracked successfully!";
-                } else {
-                    document.getElementById("statusMessage").innerText = "❌ Tracking failed!";
+            // Function to send tracking data to the server
+            async function sendTrackingData(clientLocation = null) {
+                try {
+                    const response = await fetch("/track", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ clientLocation })
+                    });
+
+                    if (response.ok) {
+                        statusMessage.innerText = "✅ Data tracked successfully!";
+                    } else {
+                        statusMessage.innerText = "❌ Tracking failed!";
+                    }
+                } catch (error) {
+                    statusMessage.innerText = "❌ Error: Unable to send request.";
                 }
-            } catch (error) {
-                document.getElementById("statusMessage").innerText = "❌ Error: Unable to send request.";
+            }
+
+            // Try to get GPS location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const clientLocation = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        };
+                        sendTrackingData(clientLocation);
+                    },
+                    (error) => {
+                        console.error("GPS Error:", error);
+                        sendTrackingData(); // Send request without GPS
+                    }
+                );
+            } else {
+                sendTrackingData(); // If GPS is not supported
             }
         });
     </script>

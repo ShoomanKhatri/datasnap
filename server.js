@@ -38,7 +38,7 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// Track User Clicks (GET changed to POST)
+// Track User Clicks with Exact Location
 app.post('/track', async (req, res) => {
     try {
         // Get the real IP address
@@ -49,6 +49,7 @@ app.post('/track', async (req, res) => {
         const userAgent = req.get('User-Agent');
         const agent = useragent.parse(userAgent);
         const browserName = agent.toAgent(); // Extract browser details
+        const os = agent.os.toString(); // Extract OS details
 
         let location = { status: 'fail', message: 'Not available', query: ip };
 
@@ -66,15 +67,17 @@ app.post('/track', async (req, res) => {
             location = { status: 'fail', message: 'private range', query: ip };
         }
 
-        // Log details
-        console.log(`🔹 Tracked Click - IP: ${ip}, Browser: ${browserName}, Location: ${location.city || 'Unknown'}, ${location.country || 'Unknown'}`);
+        // Get client-side GPS location if available
+        const clientLocation = req.body.clientLocation || null; // Expecting clientLocation from frontend
 
         // Save the tracking data to the database
         const newUserData = new UserData({
             ip: ip,
             userAgent: userAgent,
             browser: browserName,
+            os: os,
             location: location,
+            clientLocation: clientLocation, // Storing GPS-based location
             timestamp: new Date()
         });
 
@@ -85,7 +88,9 @@ app.post('/track', async (req, res) => {
             status: 'success',
             message: 'User tracked successfully',
             location: location,
-            browser: browserName
+            clientLocation: clientLocation,
+            browser: browserName,
+            os: os
         });
     } catch (error) {
         console.error('❌ Error tracking user data:', error);
@@ -95,6 +100,7 @@ app.post('/track', async (req, res) => {
             ip: 'Unknown',
             userAgent: req.get('User-Agent') || 'Unknown',
             browser: 'Unknown',
+            os: 'Unknown',
             location: { status: 'fail', message: 'Error tracking' },
             timestamp: new Date()
         });
