@@ -7,6 +7,7 @@ const path = require('path');
 const UserData = require('./models/userData'); // Correct model import
 const axios = require('axios');
 const useragent = require('useragent'); // To parse the User-Agent string
+const requestIp = require('request-ip'); // Extract real IP behind proxies
 
 dotenv.config();
 
@@ -18,6 +19,11 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('combined')); // Logs requests
 app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
+
+// Function to check if an IP is private
+const isPrivateIP = (ip) => {
+    return /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
+};
 
 // Health Check Route
 app.get('/health', async (req, res) => {
@@ -32,24 +38,40 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// Track User Clicks (Change GET to POST)
+// Track User Clicks (GET changed to POST)
 app.post('/track', async (req, res) => {
     try {
-        const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        // Get the real IP address
+        const userIp = requestIp.getClientIp(req);
+        const ip = userIp ? userIp.split(',')[0].trim() : 'Unknown';
+
+        // Get the user-agent from the request
         const userAgent = req.get('User-Agent');
-
-        // Parse user-agent to get browser and device info
         const agent = useragent.parse(userAgent);
-        const browserName = agent.toAgent(); // Browser name
+        const browserName = agent.toAgent(); // Extract browser details
 
-        // Get Geolocation of the IP
-        const ip = userIp.split(',')[0]; // If there are multiple IPs, use the first one
-        const geoResponse = await axios.get(`http://ip-api.com/json/${ip}`);
-        const location = geoResponse.data;
+        let location = {};
+        
+        if (!isPrivateIP(ip) && ip !== 'Unknown') {
+            try {
+                // Fetch geolocation only for public IPs
+                const geoResponse = await axios.get(`http://ip-api.com/json/${ip}`);
+                location = geoResponse.data;
+            } catch (geoError) {
+                console.error('🌍 Geolocation API Error:', geoError.message);
+                location = { status: 'fail', message: 'Geo lookup failed', query: ip };
+            }
+        } else {
+            // Mark private IPs
+            location = { status: 'fail', message: 'private range', query: ip };
+        }
 
-        // Create a new user data entry
+        // Log details
+        console.log(`🔹 Tracked Click - IP: ${ip}, Browser: ${browserName}, Location: ${location.city || 'Unknown'}, ${location.country || 'Unknown'}`);
+
+        // Save the tracking data to the database
         const newUserData = new UserData({
-            ip: userIp,
+            ip: ip,
             userAgent: userAgent,
             browser: browserName,
             location: location,
@@ -58,9 +80,7 @@ app.post('/track', async (req, res) => {
 
         await newUserData.save();
 
-        console.log(`🔹 Tracked Click - IP: ${userIp}, Browser: ${browserName}, Location: ${location.city}, ${location.country}`);
-
-        // Respond with success
+        // Send response
         res.json({
             status: 'success',
             message: 'User tracked successfully',
