@@ -50,8 +50,8 @@ app.post('/track', async (req, res) => {
         const agent = useragent.parse(userAgent);
         const browserName = agent.toAgent(); // Extract browser details
 
-        let location = {};
-        
+        let location = { status: 'fail', message: 'Not available', query: ip };
+
         if (!isPrivateIP(ip) && ip !== 'Unknown') {
             try {
                 // Fetch geolocation only for public IPs
@@ -89,6 +89,18 @@ app.post('/track', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error tracking user data:', error);
+        
+        // Save failed tracking attempts too
+        const failedData = new UserData({
+            ip: 'Unknown',
+            userAgent: req.get('User-Agent') || 'Unknown',
+            browser: 'Unknown',
+            location: { status: 'fail', message: 'Error tracking' },
+            timestamp: new Date()
+        });
+
+        await failedData.save(); // Save failed attempts
+        
         res.status(500).json({ status: 'error', message: 'Failed to track the request.' });
     }
 });
