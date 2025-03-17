@@ -9,7 +9,9 @@
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
     <div class="bg-white shadow-lg rounded-lg overflow-hidden max-w-lg w-full">
-       <a href="/track"> <img src="/image.png" alt="Lucy Robson" class="w-full h-full object-cover"></a>
+        <a href="/track">
+            <img src="/image.png" alt="Lucy Robson" class="w-full h-full object-cover">
+        </a>
         
         <div class="p-6 text-center">
             <h1 class="text-3xl font-bold text-gray-800">Lucy Robson</h1>
@@ -20,12 +22,33 @@
                 She has gained a strong following through her love for the game and engaging content.
             </p>
 
-            <a href="/track" class="mt-6 inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md 
+            <button id="trackButton" class="mt-6 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md 
                 hover:bg-blue-700 transition">
                 View Details
-            </a>
+            </button>
+
+            <p id="statusMessage" class="mt-4 text-gray-600"></p>
         </div>
     </div>
+
+    <script>
+        document.getElementById("trackButton").addEventListener("click", async () => {
+            try {
+                const response = await fetch("/track", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                });
+
+                if (response.ok) {
+                    document.getElementById("statusMessage").innerText = "✅ Data tracked successfully!";
+                } else {
+                    document.getElementById("statusMessage").innerText = "❌ Tracking failed!";
+                }
+            } catch (error) {
+                document.getElementById("statusMessage").innerText = "❌ Error: Unable to send request.";
+            }
+        });
+    </script>
 
 </body>
 </html>
