@@ -56,13 +56,13 @@
                         <button onclick="copyToClipboard()" class="absolute top-2 right-2 bg-gray-700 text-gray-400 px-3 py-1 rounded hover:bg-gray-600">
                             <i class="fas fa-copy"></i> Copy
                         </button>
-                        <pre class="text-gray-200">${formattedData}</pre>
+                        <pre class="text-green-400">${formattedData}</pre>
                     </div>
                 `;
             } catch (error) {
                 editor.innerHTML = `
                     <p class="text-red-400">// Error fetching data!</p>
-                    <p class="text-gray-500">${error.message}</p>
+                    <p class="text-gray-200">${error.message}</p>
                 `;
             }
         });
