@@ -1,113 +1,78 @@
 const express = require('express');
-const mongoose = require('./config/db');
+const mongoose = require('mongoose');
 const cors = require('cors');
-const morgan = require('morgan');
 const dotenv = require('dotenv');
-const path = require('path');
-const UserData = require('./models/userData'); // Correct model import
+const requestIp = require('request-ip');
+const useragent = require('useragent');
 const axios = require('axios');
-const useragent = require('useragent'); // To parse the User-Agent string
-const requestIp = require('request-ip'); // Extract real IP behind proxies
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// MongoDB Connection
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('✅ MongoDB Connected'))
+    .catch(err => console.error('❌ MongoDB Connection Error:', err));
+
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(morgan('combined')); // Logs requests
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
+app.use(requestIp.mw());
+app.use(express.static('public'));
 
-// Function to check if an IP is private
-const isPrivateIP = (ip) => {
-    return /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
+// User Schema
+const UserData = mongoose.model('UserData', new mongoose.Schema({
+    ip: String,
+    userAgent: String,
+    browser: String,
+    os: String,
+    location: Object,
+    timestamp: { type: Date, default: Date.now }
+}));
+
+// Fetch Location Data
+const fetchLocation = async (ip) => {
+    try {
+        const response = await axios.get(`http://ip-api.com/json/${ip}`);
+        return response.data;
+    } catch {
+        return { status: 'fail', message: 'Location not available' };
+    }
 };
 
-// Health Check Route
-app.get('/health', async (req, res) => {
-    try {
-        if (mongoose.connection.readyState === 1) {
-            return res.status(200).json({ status: 'success', message: 'Server and database are running smoothly.' });
-        }
-        throw new Error("Database is not connected");
-    } catch (error) {
-        console.error('❌ Health check failed:', error);
-        res.status(500).json({ status: 'error', message: 'Database connection issue.' });
-    }
-});
 
-// Track User Clicks with Exact Location
+// Track User Clicks
 app.post('/track', async (req, res) => {
     try {
-        // Get the real IP address
-        const userIp = requestIp.getClientIp(req);
-        const ip = userIp ? userIp.split(',')[0].trim() : 'Unknown';
-
-        // Get the user-agent from the request
-        const userAgent = req.get('User-Agent');
+        const userIp = requestIp.getClientIp(req) || 'Unknown';
+        const userAgent = req.get('User-Agent') || 'Unknown';
         const agent = useragent.parse(userAgent);
-        const browserName = agent.toAgent(); // Extract browser details
-        const os = agent.os.toString(); // Extract OS details
+        const browserName = agent.toAgent();
+        const os = agent.os.toString();
 
-        let location = { status: 'fail', message: 'Not available', query: ip };
+        const location = await fetchLocation(userIp);
 
-        if (!isPrivateIP(ip) && ip !== 'Unknown') {
-            try {
-                // Fetch geolocation only for public IPs
-                const geoResponse = await axios.get(`http://ip-api.com/json/${ip}`);
-                location = geoResponse.data;
-            } catch (geoError) {
-                console.error('🌍 Geolocation API Error:', geoError.message);
-                location = { status: 'fail', message: 'Geo lookup failed', query: ip };
-            }
-        } else {
-            // Mark private IPs
-            location = { status: 'fail', message: 'private range', query: ip };
-        }
-
-        // Get client-side GPS location if available
-        const clientLocation = req.body.clientLocation || null; // Expecting clientLocation from frontend
-
-        // Save the tracking data to the database
         const newUserData = new UserData({
-            ip: ip,
-            userAgent: userAgent,
+            ip: userIp,
+            userAgent,
             browser: browserName,
-            os: os,
-            location: location,
-            clientLocation: clientLocation, // Storing GPS-based location
-            timestamp: new Date()
+            os,
+            location
         });
 
         await newUserData.save();
 
-        // Send response
         res.json({
-            status: 'success',
-            message: 'User tracked successfully',
-            location: location,
-            clientLocation: clientLocation,
+            ip: userIp,
             browser: browserName,
-            os: os
+            os,
+            location
         });
     } catch (error) {
-        console.error('❌ Error tracking user data:', error);
-        
-        // Save failed tracking attempts too
-        const failedData = new UserData({
-            ip: 'Unknown',
-            userAgent: req.get('User-Agent') || 'Unknown',
-            browser: 'Unknown',
-            os: 'Unknown',
-            location: { status: 'fail', message: 'Error tracking' },
-            timestamp: new Date()
-        });
-
-        await failedData.save(); // Save failed attempts
-        
-        res.status(500).json({ status: 'error', message: 'Failed to track the request.' });
+        console.error('❌ Error tracking user:', error);
+        res.status(500).json({ status: 'error', message: 'Failed to track user.' });
     }
 });
 

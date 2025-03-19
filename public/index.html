@@ -3,79 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lucy Robson - Golf Star</title>
+    <title>User Tracking - VS Code UI</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-900 flex items-center justify-center min-h-screen p-4 relative">
 
-    <div class="bg-white shadow-lg rounded-lg overflow-hidden max-w-lg w-full">
-        <a href="/track">
-            <img src="/image.png" alt="Lucy Robson" class="w-full h-full object-cover">
-        </a>
-        
-        <div class="p-6 text-center">
-            <h1 class="text-3xl font-bold text-gray-800">Lucy Robson</h1>
-            <p class="text-gray-600 mt-2">Professional Golf Player & Social Media Personality</p>
+    <!-- VS Code Like Container -->
+    <div class="bg-gray-800 shadow-xl rounded-lg overflow-hidden max-w-3xl w-full">
 
-            <p class="text-gray-700 mt-4">
-                Lucy Robson is a talented golfer known for her skills on the course and growing influence in the golf community. 
-                She has gained a strong following through her love for the game and engaging content.
-            </p>
-
-            <button id="trackButton" class="mt-6 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md 
-                hover:bg-blue-700 transition">
-                View Details
-            </button>
-
-            <p id="statusMessage" class="mt-4 text-gray-600"></p>
+        <!-- Mac OS Style Header -->
+        <div class="flex items-center space-x-2 p-3 bg-gray-700">
+            <span class="w-3 h-3 bg-red-500 rounded-full"></span>
+            <span class="w-3 h-3 bg-yellow-500 rounded-full"></span>
+            <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+            <!-- File Icon and Name -->
+            <div class="flex items-center ml-6 bg-gray-900 px-4 pb-6 pt-4 h-full rounded-lg -mb-6">
+                <i class="fas fa-file-code text-gray-400 mr-2"></i> <!-- {} icon for JSON file -->
+                <p class="text-gray-400 text-sm ">data.json</p>
+            </div>
+        </div>
+        <!-- Code Editor Style -->
+        <div class="p-6 text-gray-200 font-mono text-sm bg-gray-900 min-h-[300px] overflow-auto" id="editor">
+            <p class="text-green-400">// Click the "Track Me" button to fetch user data</p>
         </div>
     </div>
 
+    <!-- Floating Button (Bottom Right) -->
+    <button id="trackButton" class="fixed bottom-6 right-6 bg-blue-600 text-white px-5 py-3 rounded-full shadow-lg 
+        hover:bg-blue-700 transition font-semibold flex items-center">
+        <i class="fas fa-play mr-2"></i> Track Me
+    </button>
+
     <script>
         document.getElementById("trackButton").addEventListener("click", async () => {
-            const statusMessage = document.getElementById("statusMessage");
-            statusMessage.innerText = "🔄 Tracking in progress...";
+            const editor = document.getElementById("editor");
+            editor.innerHTML = `
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-spinner fa-spin text-blue-400 text-2xl"></i>
+                    <p class="text-gray-500 ml-2">Fetching data...</p>
+                </div>
+            `;
 
-            // Function to send tracking data to the server
-            async function sendTrackingData(clientLocation = null) {
-                try {
-                    const response = await fetch("/track", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ clientLocation })
-                    });
+            try {
+                const response = await fetch("/track", { method: "POST" });
+                const data = await response.json();
 
-                    if (response.ok) {
-                        statusMessage.innerText = "✅ Data tracked successfully!";
-                    } else {
-                        statusMessage.innerText = "❌ Tracking failed!";
-                    }
-                } catch (error) {
-                    statusMessage.innerText = "❌ Error: Unable to send request.";
-                }
-            }
-
-            // Try to get GPS location
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const clientLocation = {
-                            latitude: position.coords.latitude,
-                            longitude: position.coords.longitude,
-                            accuracy: position.coords.accuracy
-                        };
-                        sendTrackingData(clientLocation);
-                    },
-                    (error) => {
-                        console.error("GPS Error:", error);
-                        sendTrackingData(); // Send request without GPS
-                    }
-                );
-            } else {
-                sendTrackingData(); // If GPS is not supported
+                // Display JSON as plain text
+                const formattedData = JSON.stringify(data, null, 2);
+                editor.innerHTML = `
+                    <div class="relative">
+                        <button onclick="copyToClipboard()" class="absolute top-2 right-2 bg-gray-700 text-gray-400 px-3 py-1 rounded hover:bg-gray-600">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                        <pre class="text-gray-200">${formattedData}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                editor.innerHTML = `
+                    <p class="text-red-400">// Error fetching data!</p>
+                    <p class="text-gray-500">${error.message}</p>
+                `;
             }
         });
-    </script>
 
+        // Function to copy JSON to clipboard
+        function copyToClipboard() {
+            const jsonText = document.querySelector("#editor pre").innerText;
+            navigator.clipboard.writeText(jsonText).then(() => {
+                alert("JSON copied to clipboard!");
+            }).catch(() => {
+                alert("Failed to copy JSON.");
+            });
+        }
+    </script>
 </body>
 </html>
