@@ -12,7 +12,8 @@ function App() {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post("/track"); // make sure your backend is deployed
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "/track";
+      const res = await axios.post(`${BACKEND_URL}`); // make sure your backend is deployed
       setUserData(res.data);
     } catch (err) {
       setError("Failed to fetch data.");
