@@ -9,7 +9,9 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/track': 'http://localhost:3000',
+      // '/track': 'http://localhost:3000',
+      '/track': 'https://people-gallery.onrender.com',
+     
     },
   },
 })
